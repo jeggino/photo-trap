@@ -444,7 +444,7 @@ def manage_camera_dialog(camera):
 
                 if st.button(f"Delete survey {s['id']}", key=f"del_survey_{s['id']}"):
                     supabase.table(SURVEY_TABLE).delete().eq("id", s["id"]).execute()
-                    st.experimental_rerun()
+                    st.rerun()
     else:
         st.info("No surveys yet for this camera.")
 
