@@ -364,81 +364,80 @@ def new_camera_dialog():
 def manage_camera_dialog(camera):
     st.subheader(f"Camera: {camera['camera_name']}")
 
+    # ----------------- CAMERA DETAILS + POSITION -----------------
     with st.expander("Camera details", expanded=True):
         cam_name = st.text_input("Camera name", value=camera["camera_name"])
+
         try:
             d = datetime.fromisoformat(camera["date"]).date()
         except Exception:
             d = datetime.utcnow().date()
+
         cam_date = st.date_input("Date", value=d)
         status = st.selectbox("Status", CAMERA_STATUS, index=CAMERA_STATUS.index(camera["status"]))
         comment = st.text_area("Comment", value=camera.get("comment", ""))
 
-    st.markdown("### Camera position")
-    edit_center = [camera["lat"], camera["lon"]]
-    m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False)
-    LocateControl(auto_start=False).add_to(m)
+        st.markdown("### Camera position")
 
-    marker_icon = BeautifyIcon(
-        icon="camera",
-        icon_shape="marker",
-        icon_anchor=[marker_size/2, marker_size],
-        background_color=STATUS_COLORS.get(status, "blue"),
-        border_color="black",
-        border_width=0.7,
-        text_color="white",
-        icon_size=[marker_size, marker_size],
-        inner_icon_style=(
-            f"font-size:{inner_icon_px}px; display:flex; align-items:center; "
-            f"justify-content:center; width:100%; height:100%; text-align:center; "
-            f"padding:0; margin:0"
+        edit_center = [camera["lat"], camera["lon"]]
+        m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False)
+        LocateControl(auto_start=False).add_to(m)
+
+        marker_icon = BeautifyIcon(
+            icon="camera",
+            icon_shape="marker",
+            icon_anchor=[marker_size/2, marker_size],
+            background_color=STATUS_COLORS.get(status, "blue"),
+            border_color="black",
+            border_width=0.7,
+            text_color="white",
+            icon_size=[marker_size, marker_size],
+            inner_icon_style=(
+                f"font-size:{inner_icon_px}px; display:flex; align-items:center; "
+                f"justify-content:center; width:100%; height:100%; text-align:center; "
+                f"padding:0; margin:0"
+            )
         )
-    )
 
-    folium.Marker(
-        location=[camera["lat"], camera["lon"]],
-        icon=marker_icon,
-        popup="Current location"
-    ).add_to(m)
+        folium.Marker(
+            location=[camera["lat"], camera["lon"]],
+            icon=marker_icon,
+            popup="Current location"
+        ).add_to(m)
 
-    crosshair_html = f"""
-    <div style="
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        z-index: 9999;
-    ">
-        <img src="{CROSS_IMAGE_PATH}"
-             style="width:{WIDTH}px; opacity:{OPACITY};">
-    </div>
-    """
-    m.get_root().html.add_child(folium.Element(crosshair_html))
+        crosshair_html = f"""
+        <div style='position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                    pointer-events: none; z-index: 9999;'>
+            <img src="{CROSS_IMAGE_PATH}" style="width:{WIDTH}px; opacity:{OPACITY};">
+        </div>
+        """
+        m.get_root().html.add_child(folium.Element(crosshair_html))
 
-    map_data = st_folium(m, width="100%", height=350)
-    try:
-        new_lat = map_data["center"]["lat"]
-        new_lon = map_data["center"]["lng"]
-    except Exception:
-        new_lat, new_lon = camera["lat"], camera["lon"]
+        map_data = st_folium(m, width="100%", height=350)
 
-    if st.button("Update camera", use_container_width=True):
-        supabase.table(CAMERA_TABLE).update({
-            "camera_name": cam_name,
-            "date": str(cam_date),
-            "status": status,
-            "comment": comment,
-            "lat": float(new_lat),
-            "lon": float(new_lon),
-        }).eq("id", camera["id"]).execute()
+        try:
+            new_lat = map_data["center"]["lat"]
+            new_lon = map_data["center"]["lng"]
+        except Exception:
+            new_lat, new_lon = camera["lat"], camera["lon"]
 
-        load_cameras(st.session_state.project)
-        st.success("Camera updated.")
-        st.rerun()
+        if st.button("Update camera", use_container_width=True):
+            supabase.table(CAMERA_TABLE).update({
+                "camera_name": cam_name,
+                "date": str(cam_date),
+                "status": status,
+                "comment": comment,
+                "lat": float(new_lat),
+                "lon": float(new_lon),
+            }).eq("id", camera["id"]).execute()
+
+            load_cameras(st.session_state.project)
+            st.success("Camera updated.")
+            st.rerun()
 
     st.divider()
 
+    # ----------------- EXISTING SURVEYS -----------------
     st.markdown("### Camera surveys")
 
     res = (
@@ -452,17 +451,30 @@ def manage_camera_dialog(camera):
     surveys = res.data or []
 
     if surveys:
-        st.write("Existing surveys:")
         for s in surveys:
             with st.expander(f"{s['date']} - {s.get('species','')}"):
                 st.write(f"**Observer:** {s.get('observer','')}")
                 st.write(f"**Species:** {s.get('species','')}")
                 st.write(f"**Description:** {s.get('description','')}")
+
                 urls = s.get("url_media") or []
+
                 if urls:
-                    st.write("Media URLs:")
-                    for u in urls:
-                        st.write(f"- {u}")
+                    st.markdown("#### Media gallery")
+
+                    cols = st.columns(3)
+                    idx = 0
+
+                    for url in urls:
+                        ext = url.split(".")[-1].lower()
+
+                        with cols[idx % 3]:
+                            if ext in ["jpg", "jpeg", "png"]:
+                                st.image(url, use_column_width=True)
+                            elif ext in ["mp4"]:
+                                st.video(url)
+
+                        idx += 1
 
                 if st.button(f"Delete survey {s['id']}", key=f"del_survey_{s['id']}"):
                     supabase.table(SURVEY_TABLE).delete().eq("id", s["id"]).execute()
@@ -470,45 +482,68 @@ def manage_camera_dialog(camera):
     else:
         st.info("No surveys yet for this camera.")
 
-    st.markdown("### Add new survey entry")
+    st.divider()
 
-    survey_date = st.date_input("Survey date", value=datetime.utcnow().date(), key=f"survey_date_{camera['id']}")
-    species = st.text_input("Species", key=f"species_{camera['id']}")
-    description = st.text_area("Description", key=f"desc_{camera['id']}")
-    media_files = st.file_uploader(
-        "Upload media (photos/videos)",
-        type=["jpg", "jpeg", "png", "mp4"],
-        accept_multiple_files=True,
-        key=f"media_{camera['id']}"
-    )
+    # ----------------- ADD NEW SURVEY ENTRY -----------------
+    with st.expander("Add new survey entry", expanded=False):
+        survey_date = st.date_input("Survey date", value=datetime.utcnow().date(), key=f"survey_date_{camera['id']}")
+        species = st.text_input("Species", key=f"species_{camera['id']}")
+        description = st.text_area("Description", key=f"desc_{camera['id']}")
+        media_files = st.file_uploader(
+            "Upload media (photos/videos)",
+            type=["jpg", "jpeg", "png", "mp4"],
+            accept_multiple_files=True,
+            key=f"media_{camera['id']}"
+        )
 
-    if st.button("Save survey", use_container_width=True, key=f"save_survey_{camera['id']}"):
-        observer = st.session_state.user.email
-        project = st.session_state.project
+        if st.button("Save survey", use_container_width=True, key=f"save_survey_{camera['id']}"):
+            observer = st.session_state.user.email
+            project = st.session_state.project
 
-        urls = upload_media_files(media_files)
+            urls = upload_media_files(media_files)
 
-        data = {
-            "camera_name": camera["camera_name"],
-            "observer": observer,
-            "project": project,
-            "date": str(survey_date),
-            "species": species,
-            "url_media": urls,
-            "description": description,
-        }
+            data = {
+                "camera_name": camera["camera_name"],
+                "observer": observer,
+                "project": project,
+                "date": str(survey_date),
+                "species": species,
+                "url_media": urls,
+                "description": description,
+            }
 
-        supabase.table(SURVEY_TABLE).insert(data).execute()
-        st.success("Survey saved.")
-        st.rerun()
+            supabase.table(SURVEY_TABLE).insert(data).execute()
+            st.success("Survey saved.")
+            st.rerun()
 
     st.divider()
 
+    # ----------------- DELETE CAMERA -----------------
     if st.button("Delete camera", type="secondary", use_container_width=True):
-        supabase.table(SURVEY_TABLE).delete().eq("camera_name", camera["camera_name"]).eq("project", st.session_state.project).execute()
-        supabase.table(CAMERA_TABLE).delete().eq("id", camera["id"]).execute()
-        load_cameras(st.session_state.project)
-        st.rerun()
+        st.warning("Do you also want to delete all related photos?")
+        choice = st.radio("Choose:", ["No, keep photos", "Yes, delete photos"])
+
+        if st.button("Confirm delete", type="primary", use_container_width=True):
+            if choice == "Yes, delete photos":
+                surveys = supabase.table(SURVEY_TABLE).select("*").eq("camera_name", camera["camera_name"]).eq("project", st.session_state.project).execute().data or []
+
+                for s in surveys:
+                    urls = s.get("url_media") or []
+                    for url in urls:
+                        filename = url.split("/")[-1]
+                        try:
+                            supabase.storage.from_(MEDIA_BUCKET).remove(filename)
+                        except:
+                            pass
+
+                supabase.table(SURVEY_TABLE).delete().eq("camera_name", camera["camera_name"]).eq("project", st.session_state.project).execute()
+
+            supabase.table(CAMERA_TABLE).delete().eq("id", camera["id"]).execute()
+
+            load_cameras(st.session_state.project)
+            st.success("Camera deleted.")
+            st.rerun()
+
 
 
 # ----------------- MAP CENTER HELPER -----------------
