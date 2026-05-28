@@ -22,7 +22,7 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 PROJECTS_TABLE = "project_members"
 CAMERA_TABLE = "data_cameras"
 SURVEY_TABLE = "survey_camera"
-BOUNDARY_BUCKET = "project_boundaries"   # optional, if you still use geojson per project
+BOUNDARY_BUCKET = "observation_photos"   # optional, if you still use geojson per project
 MEDIA_BUCKET = "camera_trap_media"
 
 CROSS_IMAGE_PATH = "https://static.vecteezy.com/system/resources/previews/031/742/868/non_2x/transparent-circle-cross-icon-free-png.png"
