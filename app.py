@@ -328,11 +328,8 @@ def new_camera_dialog():
             ext = photo.name.split(".")[-1].lower()
             file_id = f"{uuid.uuid4()}.{ext}"
         
-            # Upload into a folder inside the bucket
-            file_path = f"camera_photos/{file_id}"
-        
             supabase.storage.from_(MEDIA_BUCKET).upload(
-                file_path,
+                file_id,
                 file_bytes,
                 file_options={"content-type": f"image/{ext}"}
             )
