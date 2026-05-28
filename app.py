@@ -287,21 +287,13 @@ def new_camera_dialog():
     base_center = st.session_state.map_input_center
     zoom = 20
 
-    # --- MAP WITH CROSSHAIR ---
     m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
 
     crosshair_html = f"""
-    <div style="
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        z-index: 9999;
-    ">
-        <img src="{CROSS_IMAGE_PATH}"
-             style="width:{WIDTH}px; opacity:{OPACITY};">
+    <div style='position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                pointer-events: none; z-index: 9999;'>
+        <img src="{CROSS_IMAGE_PATH}" style="width:{WIDTH}px; opacity:{OPACITY};">
     </div>
     """
     m.get_root().html.add_child(folium.Element(crosshair_html))
@@ -314,21 +306,18 @@ def new_camera_dialog():
     except Exception:
         lat, lon = base_center
 
-    # --- CAMERA DETAILS ---
-    with st.expander("Camera details"):
+    with st.expander("Camera details", expanded=True):
         camera_name = st.text_input("Camera name")
-        cam_date = st.date_input("Date", value=datetime.utcnow().date())
+        camera_placed = st.date_input("Camera placed", value=datetime.utcnow().date())
+        camera_moved = st.date_input("Camera moved (optional)")
         status = st.selectbox("Status", CAMERA_STATUS)
         comment = st.text_area("Comment")
 
-    # --- PHOTO UPLOAD ---
     with st.expander("Camera photo (optional)"):
         photo = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
 
-    # --- CREATE CAMERA ---
     if st.button("Create camera", use_container_width=True):
 
-        # Upload photo if provided
         photo_url = None
         if photo:
             file_bytes = photo.getvalue()
@@ -343,26 +332,25 @@ def new_camera_dialog():
 
             photo_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
 
-        # Insert new camera
         data = {
             "project": st.session_state.project,
-            "observer": st.session_state.user.email,   # ← REQUIRED FIELD
+            "observer": st.session_state.user.email,
             "camera_name": camera_name,
-            "date": str(cam_date),
             "status": status,
             "comment": comment,
             "lat": float(lat),
             "lon": float(lon),
             "photo_url": photo_url,
+            "camera_placed": str(camera_placed),
+            "camera_moved": str(camera_moved) if camera_moved else None,
         }
-
-
 
         supabase.table(CAMERA_TABLE).insert(data).execute()
 
         load_cameras(st.session_state.project)
         st.success("New camera created.")
         st.rerun()
+
 
 
 
@@ -382,12 +370,20 @@ def manage_camera_dialog(camera):
     with st.expander("Camera details", expanded=False):
         cam_name = st.text_input("Camera name", value=camera["camera_name"])
 
+        # New fields: placed + moved
         try:
-            d = datetime.fromisoformat(camera["date"]).date()
-        except Exception:
-            d = datetime.utcnow().date()
+            placed = datetime.fromisoformat(camera.get("camera_placed", "")).date()
+        except:
+            placed = datetime.utcnow().date()
 
-        cam_date = st.date_input("Date", value=d)
+        try:
+            moved = datetime.fromisoformat(camera.get("camera_moved", "")).date()
+        except:
+            moved = None
+
+        camera_placed = st.date_input("Camera placed", value=placed)
+        camera_moved = st.date_input("Camera moved", value=moved)
+
         status = st.selectbox("Status", CAMERA_STATUS, index=CAMERA_STATUS.index(camera["status"]))
         comment = st.text_area("Comment", value=camera.get("comment", ""))
 
@@ -480,11 +476,12 @@ def manage_camera_dialog(camera):
         if st.button("Update camera", use_container_width=True):
             supabase.table(CAMERA_TABLE).update({
                 "camera_name": cam_name,
-                "date": str(cam_date),
                 "status": status,
                 "comment": comment,
                 "lat": float(new_lat),
                 "lon": float(new_lon),
+                "camera_placed": str(camera_placed),
+                "camera_moved": str(camera_moved) if camera_moved else None,
             }).eq("id", camera["id"]).execute()
 
             load_cameras(st.session_state.project)
@@ -691,6 +688,7 @@ def manage_camera_dialog(camera):
 
 
 
+
 # ----------------- MAP CENTER HELPER -----------------
 def _get_center_from_map_data(map_data, fallback_center):
     try:
@@ -818,58 +816,37 @@ def show_main_app():
             border-radius: 10px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.25);
             font-family: 'Arial', sans-serif;
-            width: 200px;
+            width: 220px;
             border: 3px solid {color};
         ">
         
-            <!-- Camera Name -->
-            <div style="
-                font-weight: 700;
-                font-size: 15px;
-                color: {color};
-                margin-bottom: 6px;
-                text-align: center;
-            ">
+            <div style="font-weight: 700; font-size: 15px; color: {color}; margin-bottom: 6px; text-align: center;">
                 {cam.get('camera_name','')}
             </div>
         
-            <!-- Photo -->
             <div style="text-align:center; margin-bottom:8px;">
                 {image_block}
             </div>
         
-            <!-- Date -->
-            <div style="
-                font-size: 13px;
-                color: #444;
-                margin-bottom: 4px;
-                text-align: center;
-            ">
-                {cam.get('date','')}
-            </div>
-        
-            <!-- Status -->
-            <div style="
-                font-size: 12px;
-                color: #555;
-                margin-bottom: 4px;
-                font-style: italic;
-                text-align: center;
-            ">
+            <div style="font-size: 12px; color: #444; margin-bottom: 4px;">
                 Status: {cam.get('status','')}
             </div>
         
-            <!-- Comment -->
-            <div style="
-                font-size: 12px;
-                color: #333;
-                text-align: justify;
-            ">
+            <div style="font-size: 12px; color: #444; margin-bottom: 4px;">
+                Placed: {cam.get('camera_placed','')}
+            </div>
+        
+            <div style="font-size: 12px; color: #444; margin-bottom: 4px;">
+                Moved: {cam.get('camera_moved','')}
+            </div>
+        
+            <div style="font-size: 12px; color: #333; text-align: justify;">
                 {cam.get('comment','')}
             </div>
         
         </div>
         """
+
 
 
         tooltip_text = str(cam["id"])
