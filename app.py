@@ -336,6 +336,7 @@ def new_camera_dialog():
         # Insert new camera
         data = {
             "project": st.session_state.project,
+            "observer": st.session_state.user.email,   # ← REQUIRED FIELD
             "camera_name": camera_name,
             "date": str(cam_date),
             "status": status,
@@ -344,6 +345,8 @@ def new_camera_dialog():
             "lon": float(lon),
             "photo_url": photo_url,
         }
+
+
 
         supabase.table(CAMERA_TABLE).insert(data).execute()
 
