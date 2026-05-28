@@ -290,6 +290,18 @@ def new_camera_dialog():
     m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
 
+    # Satellite layer (Esri)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri World Imagery",
+        name="Satellite",
+        overlay=False,
+        control=True
+    ).add_to(m)
+
+    # Add locate button
+    LocateControl(auto_start=False).add_to(m)
+
     crosshair_html = f"""
     <div style='position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
                 pointer-events: none; z-index: 9999;'>
@@ -433,6 +445,18 @@ def manage_camera_dialog(camera):
 
         edit_center = [camera["lat"], camera["lon"]]
         m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False)
+        LocateControl(auto_start=False).add_to(m)
+
+        # Satellite layer (Esri)
+        folium.TileLayer(
+            tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            attr="Esri World Imagery",
+            name="Satellite",
+            overlay=False,
+            control=True
+        ).add_to(m)
+    
+        # Add locate button
         LocateControl(auto_start=False).add_to(m)
 
         marker_icon = BeautifyIcon(
@@ -754,6 +778,19 @@ def show_main_app():
     # MAP
     m = folium.Map(location=st.session_state.map_center, zoom_start=12, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
+
+    # Satellite layer (Esri)
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri World Imagery",
+        name="Satellite",
+        overlay=False,
+        control=True
+    ).add_to(m)
+
+    # Add locate button
+    LocateControl(auto_start=False).add_to(m)
+    
 
     boundary, bounds = load_project_boundary(st.session_state.project)
     if boundary:
