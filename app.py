@@ -299,8 +299,7 @@ def new_camera_dialog():
         control=True
     ).add_to(m)
 
-    # Add locate button
-    LocateControl(auto_start=False).add_to(m)
+
 
     crosshair_html = f"""
     <div style='position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -445,7 +444,6 @@ def manage_camera_dialog(camera):
 
         edit_center = [camera["lat"], camera["lon"]]
         m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False)
-        LocateControl(auto_start=False).add_to(m)
 
         # Satellite layer (Esri)
         folium.TileLayer(
@@ -456,8 +454,6 @@ def manage_camera_dialog(camera):
             control=True
         ).add_to(m)
     
-        # Add locate button
-        LocateControl(auto_start=False).add_to(m)
 
         marker_icon = BeautifyIcon(
             icon="camera",
@@ -788,8 +784,6 @@ def show_main_app():
         control=True
     ).add_to(m)
 
-    # Add locate button
-    LocateControl(auto_start=False).add_to(m)
     
 
     boundary, bounds = load_project_boundary(st.session_state.project)
