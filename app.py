@@ -359,13 +359,12 @@ def new_camera_dialog():
 
 
 
-# ----------------- DIALOG: MANAGE CAMERA -----------------
 @st.dialog("Manage Camera")
 def manage_camera_dialog(camera):
     st.subheader(f"Camera: {camera['camera_name']}")
 
     # ----------------- CAMERA DETAILS + POSITION -----------------
-    with st.expander("Camera details", expanded=True):
+    with st.expander("Camera details", expanded=False):
         cam_name = st.text_input("Camera name", value=camera["camera_name"])
 
         try:
@@ -377,6 +376,48 @@ def manage_camera_dialog(camera):
         status = st.selectbox("Status", CAMERA_STATUS, index=CAMERA_STATUS.index(camera["status"]))
         comment = st.text_area("Comment", value=camera.get("comment", ""))
 
+        # -------- CHANGE CAMERA PHOTO --------
+        st.markdown("### Camera photo")
+
+        if camera.get("photo_url"):
+            st.image(camera["photo_url"], width=250)
+
+        new_cam_photo = st.file_uploader(
+            "Replace camera photo",
+            type=["jpg", "jpeg", "png"],
+            key=f"new_cam_photo_{camera['id']}"
+        )
+
+        if new_cam_photo:
+            # Delete old photo if exists
+            if camera.get("photo_url"):
+                old_file = camera["photo_url"].split("/")[-1]
+                try:
+                    supabase.storage.from_(MEDIA_BUCKET).remove(old_file)
+                except:
+                    pass
+
+            # Upload new photo
+            file_bytes = new_cam_photo.getvalue()
+            ext = new_cam_photo.name.split(".")[-1].lower()
+            file_id = f"{uuid.uuid4()}.{ext}"
+
+            supabase.storage.from_(MEDIA_BUCKET).upload(
+                file_id,
+                file_bytes,
+                file_options={"content-type": f"image/{ext}"}
+            )
+
+            new_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
+
+            supabase.table(CAMERA_TABLE).update({
+                "photo_url": new_url
+            }).eq("id", camera["id"]).execute()
+
+            st.success("Camera photo updated.")
+            st.rerun()
+
+        # -------- CAMERA POSITION --------
         st.markdown("### Camera position")
 
         edit_center = [camera["lat"], camera["lon"]]
@@ -462,21 +503,29 @@ def manage_camera_dialog(camera):
                 if urls:
                     st.markdown("#### Media gallery")
 
-                    cols = st.columns(3)
+                    cols = st.columns(2)
                     idx = 0
 
                     for url in urls:
                         ext = url.split(".")[-1].lower()
 
-                        with cols[idx % 3]:
+                        with cols[idx % 2]:
                             if ext in ["jpg", "jpeg", "png"]:
                                 st.image(url, use_column_width=True)
-                            elif ext in ["mp4"]:
+                            elif ext == "mp4":
                                 st.video(url)
 
                         idx += 1
 
                 if st.button(f"Delete survey {s['id']}", key=f"del_survey_{s['id']}"):
+                    # Delete media files
+                    for url in urls:
+                        filename = url.split("/")[-1]
+                        try:
+                            supabase.storage.from_(MEDIA_BUCKET).remove(filename)
+                        except:
+                            pass
+
                     supabase.table(SURVEY_TABLE).delete().eq("id", s["id"]).execute()
                     st.rerun()
     else:
@@ -520,11 +569,33 @@ def manage_camera_dialog(camera):
 
     # ----------------- DELETE CAMERA -----------------
     if st.button("Delete camera", type="secondary", use_container_width=True):
-        st.warning("Do you also want to delete all related photos?")
-        choice = st.radio("Choose:", ["No, keep photos", "Yes, delete photos"])
+        st.warning("Choose what to delete:")
+
+        choice = st.radio(
+            "Delete options:",
+            [
+                "Delete camera only",
+                "Delete camera + survey photos",
+                "Delete camera + camera photo + survey photos"
+            ]
+        )
 
         if st.button("Confirm delete", type="primary", use_container_width=True):
-            if choice == "Yes, delete photos":
+
+            # Delete camera photo
+            if choice == "Delete camera + camera photo + survey photos":
+                if camera.get("photo_url"):
+                    filename = camera["photo_url"].split("/")[-1]
+                    try:
+                        supabase.storage.from_(MEDIA_BUCKET).remove(filename)
+                    except:
+                        pass
+
+            # Delete survey photos
+            if choice in [
+                "Delete camera + survey photos",
+                "Delete camera + camera photo + survey photos"
+            ]:
                 surveys = supabase.table(SURVEY_TABLE).select("*").eq("camera_name", camera["camera_name"]).eq("project", st.session_state.project).execute().data or []
 
                 for s in surveys:
@@ -538,11 +609,13 @@ def manage_camera_dialog(camera):
 
                 supabase.table(SURVEY_TABLE).delete().eq("camera_name", camera["camera_name"]).eq("project", st.session_state.project).execute()
 
+            # Delete camera record
             supabase.table(CAMERA_TABLE).delete().eq("id", camera["id"]).execute()
 
             load_cameras(st.session_state.project)
             st.success("Camera deleted.")
             st.rerun()
+
 
 
 
