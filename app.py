@@ -282,13 +282,46 @@ def show_project_selection():
 # ----------------- DIALOG: NEW CAMERA -----------------
 @st.dialog("Insert a Camera")
 def new_camera_dialog():
-    st.write("Fill in the camera information.")
+    st.write("Use the map center as the camera position.")
 
-    camera_name = st.text_input("Camera name")
-    cam_date = st.date_input("Date", value=datetime.utcnow().date())
-    status = st.selectbox("Status", CAMERA_STATUS)
-    comment = st.text_area("Comment")
+    base_center = st.session_state.map_input_center
+    zoom = 20
 
+    # --- MAP WITH CROSSHAIR ---
+    m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False)
+    LocateControl(auto_start=False).add_to(m)
+
+    crosshair_html = f"""
+    <div style="
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 9999;
+    ">
+        <img src="{CROSS_IMAGE_PATH}"
+             style="width:{WIDTH}px; opacity:{OPACITY};">
+    </div>
+    """
+    m.get_root().html.add_child(folium.Element(crosshair_html))
+
+    map_data = st_folium(m, width="100%", height=350)
+
+    try:
+        lat = map_data["center"]["lat"]
+        lon = map_data["center"]["lng"]
+    except Exception:
+        lat, lon = base_center
+
+    # --- CAMERA DETAILS ---
+    with st.expander("Camera details"):
+        camera_name = st.text_input("Camera name")
+        cam_date = st.date_input("Date", value=datetime.utcnow().date())
+        status = st.selectbox("Status", CAMERA_STATUS)
+        comment = st.text_area("Comment")
+
+    # --- SAVE BUTTON ---
     if st.button("Save camera", use_container_width=True):
         if not camera_name:
             st.error("Camera name is required.")
@@ -296,9 +329,6 @@ def new_camera_dialog():
 
         user_email = st.session_state.user.email
         project = st.session_state.project
-
-        # Use current map center as camera position
-        lat, lon = st.session_state.map_input_center
 
         data = {
             "camera_name": camera_name,
@@ -318,6 +348,7 @@ def new_camera_dialog():
 
         load_cameras(project)
         st.rerun()
+
 
 
 # ----------------- DIALOG: MANAGE CAMERA -----------------
