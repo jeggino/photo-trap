@@ -277,6 +277,7 @@ def new_camera_dialog():
     base_center = st.session_state.map_input_center
     zoom = 20
 
+    # --- MAP WITH CROSSHAIR ---
     m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
 
@@ -303,16 +304,37 @@ def new_camera_dialog():
     except Exception:
         lat, lon = base_center
 
+    # --- CAMERA DETAILS ---
     with st.expander("Camera details"):
         camera_name = st.text_input("Camera name")
         cam_date = st.date_input("Date", value=datetime.utcnow().date())
         status = st.selectbox("Status", CAMERA_STATUS)
         comment = st.text_area("Comment")
 
+    # --- PHOTO UPLOAD ---
+    with st.expander("Camera photo (optional)"):
+        photo = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
+
+    # --- SAVE BUTTON ---
     if st.button("Save camera", use_container_width=True):
         if not camera_name:
             st.error("Camera name is required.")
             st.stop()
+
+        # Upload photo if provided
+        photo_url = None
+        if photo:
+            file_bytes = photo.getvalue()
+            ext = photo.name.split(".")[-1].lower()
+            file_id = f"{uuid.uuid4()}.{ext}"
+
+            supabase.storage.from_(MEDIA_BUCKET).upload(
+                file_id,
+                file_bytes,
+                file_options={"content-type": f"image/{ext}"}
+            )
+
+            photo_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
 
         user_email = st.session_state.user.email
         project = st.session_state.project
@@ -326,6 +348,7 @@ def new_camera_dialog():
             "project": project,
             "lat": float(lat),
             "lon": float(lon),
+            "photo_url": photo_url,   # NEW FIELD
         }
 
         supabase.table(CAMERA_TABLE).insert(data).execute()
@@ -335,6 +358,7 @@ def new_camera_dialog():
 
         load_cameras(project)
         st.rerun()
+
 
 
 # ----------------- DIALOG: MANAGE CAMERA -----------------
@@ -592,6 +616,23 @@ def show_main_app():
             )
         )
 
+        # Styled popup with photo support
+        if cam.get("photo_url"):
+            image_block = f"""
+                <a href="{cam.get('photo_url')}" target="_blank">
+                    <img src="{cam.get('photo_url')}" 
+                         style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 6px;">
+                </a>
+            """
+        else:
+            image_block = """
+                <div style="
+                    font-size: 22px;
+                    text-align: center;
+                    margin: 10px 0;
+                ">📷</div>
+            """
+        
         popup_html = f"""
         <div style="
             background-color: white;
@@ -602,6 +643,8 @@ def show_main_app():
             width: 200px;
             border: 3px solid {color};
         ">
+        
+            <!-- Camera Name -->
             <div style="
                 font-weight: 700;
                 font-size: 15px;
@@ -611,6 +654,13 @@ def show_main_app():
             ">
                 {cam.get('camera_name','')}
             </div>
+        
+            <!-- Photo -->
+            <div style="text-align:center; margin-bottom:8px;">
+                {image_block}
+            </div>
+        
+            <!-- Date -->
             <div style="
                 font-size: 13px;
                 color: #444;
@@ -619,6 +669,8 @@ def show_main_app():
             ">
                 {cam.get('date','')}
             </div>
+        
+            <!-- Status -->
             <div style="
                 font-size: 12px;
                 color: #555;
@@ -628,6 +680,8 @@ def show_main_app():
             ">
                 Status: {cam.get('status','')}
             </div>
+        
+            <!-- Comment -->
             <div style="
                 font-size: 12px;
                 color: #333;
@@ -635,8 +689,10 @@ def show_main_app():
             ">
                 {cam.get('comment','')}
             </div>
+        
         </div>
         """
+
 
         tooltip_text = str(cam["id"])
 
