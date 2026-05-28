@@ -334,7 +334,7 @@ def new_camera_dialog():
             photo_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
 
         # Insert new camera
-        supabase.table(CAMERA_TABLE).insert({
+        data = {
             "project": st.session_state.project,
             "camera_name": camera_name,
             "date": str(cam_date),
@@ -343,11 +343,14 @@ def new_camera_dialog():
             "lat": float(lat),
             "lon": float(lon),
             "photo_url": photo_url,
-        }).execute()
+        }
+
+        supabase.table(CAMERA_TABLE).insert(data).execute()
 
         load_cameras(st.session_state.project)
         st.success("New camera created.")
         st.rerun()
+
 
 
 
