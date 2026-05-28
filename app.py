@@ -315,40 +315,40 @@ def new_camera_dialog():
     with st.expander("Camera photo (optional)"):
         photo = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
 
-    if st.button("Update camera", use_container_width=True):
-    
-        # Keep old photo unless a new one is uploaded
-        photo_url = camera.get("photo_url")
-    
-        # Upload new photo if provided
-        if new_photo:
-            file_bytes = new_photo.getvalue()
-            ext = new_photo.name.split(".")[-1].lower()
+    # --- CREATE CAMERA ---
+    if st.button("Create camera", use_container_width=True):
+
+        # Upload photo if provided
+        photo_url = None
+        if photo:
+            file_bytes = photo.getvalue()
+            ext = photo.name.split(".")[-1].lower()
             file_id = f"{uuid.uuid4()}.{ext}"
-    
-            # Upload directly to bucket root (safe)
+
             supabase.storage.from_(MEDIA_BUCKET).upload(
                 file_id,
                 file_bytes,
                 file_options={"content-type": f"image/{ext}"}
             )
-    
+
             photo_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
-    
-        # Update camera record
-        supabase.table(CAMERA_TABLE).update({
-            "camera_name": cam_name,
+
+        # Insert new camera
+        supabase.table(CAMERA_TABLE).insert({
+            "project": st.session_state.project,
+            "camera_name": camera_name,
             "date": str(cam_date),
             "status": status,
             "comment": comment,
-            "lat": float(new_lat),
-            "lon": float(new_lon),
-            "photo_url": photo_url,   # ← updated or unchanged
-        }).eq("id", camera["id"]).execute()
-    
+            "lat": float(lat),
+            "lon": float(lon),
+            "photo_url": photo_url,
+        }).execute()
+
         load_cameras(st.session_state.project)
-        st.success("Camera updated.")
+        st.success("New camera created.")
         st.rerun()
+
 
 
 
