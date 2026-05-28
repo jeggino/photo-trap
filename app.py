@@ -3,10 +3,9 @@ from streamlit_folium import st_folium
 import folium
 from folium.plugins import LocateControl, BeautifyIcon, MarkerCluster
 from supabase import create_client, Client
-from datetime import datetime, date
+from datetime import datetime
 import uuid
 import json
-import pandas as pd
 import re
 
 # ----------------- CONFIG -----------------
@@ -25,11 +24,10 @@ SURVEY_TABLE = "survey_camera"
 BOUNDARY_BUCKET = "observation_photos"   # optional, if you still use geojson per project
 MEDIA_BUCKET = "camera_trap_media"
 
+IMAGE = "https://www.nachtvandevleermuis.nl/wp-content/uploads/Elsken_Ecologie_LOGO-min-1024x748.png"
 CROSS_IMAGE_PATH = "https://static.vecteezy.com/system/resources/previews/031/742/868/non_2x/transparent-circle-cross-icon-free-png.png"
 OPACITY = 1
 WIDTH = 30
-
-IMAGE = "https://www.nachtvandevleermuis.nl/wp-content/uploads/Elsken_Ecologie_LOGO-min-1024x748.png"
 
 marker_size = 25
 inner_icon_px = 11
@@ -125,10 +123,6 @@ def load_cameras(project_name: str):
 
 
 def load_project_boundary(project_name):
-    """
-    Load <project>.geojson from Supabase Storage (optional)
-    and return (geojson_dict, bounds).
-    """
     filename = f"{project_name}.geojson"
 
     try:
@@ -175,10 +169,6 @@ def load_project_boundary(project_name):
 
 # ----------------- STORAGE HELPERS -----------------
 def upload_media_files(files):
-    """
-    Upload multiple files to MEDIA_BUCKET.
-    Returns a list of public URLs.
-    """
     if not files:
         return []
 
@@ -280,14 +270,13 @@ def show_project_selection():
 
 
 # ----------------- DIALOG: NEW CAMERA -----------------
-@st.dialog("Insert a Camera")
+@st.dialog("New Camera")
 def new_camera_dialog():
     st.write("Use the map center as the camera position.")
 
     base_center = st.session_state.map_input_center
     zoom = 20
 
-    # --- MAP WITH CROSSHAIR ---
     m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
 
@@ -314,14 +303,12 @@ def new_camera_dialog():
     except Exception:
         lat, lon = base_center
 
-    # --- CAMERA DETAILS ---
     with st.expander("Camera details"):
         camera_name = st.text_input("Camera name")
         cam_date = st.date_input("Date", value=datetime.utcnow().date())
         status = st.selectbox("Status", CAMERA_STATUS)
         comment = st.text_area("Comment")
 
-    # --- SAVE BUTTON ---
     if st.button("Save camera", use_container_width=True):
         if not camera_name:
             st.error("Camera name is required.")
@@ -350,25 +337,21 @@ def new_camera_dialog():
         st.rerun()
 
 
-
 # ----------------- DIALOG: MANAGE CAMERA -----------------
 @st.dialog("Manage Camera")
 def manage_camera_dialog(camera):
     st.subheader(f"Camera: {camera['camera_name']}")
 
-    # --- EDIT CAMERA METADATA ---
-    st.markdown("### Camera details")
+    with st.expander("Camera details", expanded=True):
+        cam_name = st.text_input("Camera name", value=camera["camera_name"])
+        try:
+            d = datetime.fromisoformat(camera["date"]).date()
+        except Exception:
+            d = datetime.utcnow().date()
+        cam_date = st.date_input("Date", value=d)
+        status = st.selectbox("Status", CAMERA_STATUS, index=CAMERA_STATUS.index(camera["status"]))
+        comment = st.text_area("Comment", value=camera.get("comment", ""))
 
-    cam_name = st.text_input("Camera name", value=camera["camera_name"])
-    try:
-        d = datetime.fromisoformat(camera["date"]).date()
-    except Exception:
-        d = datetime.utcnow().date()
-    cam_date = st.date_input("Date", value=d)
-    status = st.selectbox("Status", CAMERA_STATUS, index=CAMERA_STATUS.index(camera["status"]))
-    comment = st.text_area("Comment", value=camera.get("comment", ""))
-
-    # Map to adjust coordinates
     st.markdown("### Camera position")
     edit_center = [camera["lat"], camera["lon"]]
     m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False)
@@ -434,10 +417,8 @@ def manage_camera_dialog(camera):
 
     st.divider()
 
-    # --- SURVEY ENTRIES FOR THIS CAMERA ---
     st.markdown("### Camera surveys")
 
-    # Load existing surveys
     res = (
         supabase.table(SURVEY_TABLE)
         .select("*")
@@ -502,28 +483,38 @@ def manage_camera_dialog(camera):
     st.divider()
 
     if st.button("Delete camera", type="secondary", use_container_width=True):
-        # delete surveys for this camera
         supabase.table(SURVEY_TABLE).delete().eq("camera_name", camera["camera_name"]).eq("project", st.session_state.project).execute()
-        # delete camera
         supabase.table(CAMERA_TABLE).delete().eq("id", camera["id"]).execute()
         load_cameras(st.session_state.project)
         st.rerun()
 
 
+# ----------------- MAP CENTER HELPER -----------------
+def _get_center_from_map_data(map_data, fallback_center):
+    try:
+        center = map_data.get("center")
+        if center and "lat" in center and "lng" in center:
+            return [center["lat"], center["lng"]]
+    except Exception:
+        pass
+    return fallback_center
+
+
 # ----------------- MAIN APP -----------------
 def show_main_app():
+    # Top bar: only New Camera button (mobile-friendly)
     col1, col2 = st.columns([0.7, 0.3])
     with col1:
-        st.image(IMAGE, width=150)
+        st.write("")  # no title
     with col2:
-        if st.button("Insert a camera", use_container_width=True):
+        if st.button("New Camera", width="stretch", icon=":material/add_location_alt:"):
             new_camera_dialog()
 
-    if st.sidebar.button("Change Project", use_container_width=True):
+    if st.sidebar.button("Change Project", width="stretch", icon=":material/sync_alt:"):
         st.session_state.changing_project = True
         st.rerun()
 
-    if st.sidebar.button("Logout", use_container_width=True):
+    if st.sidebar.button("Logout", width="stretch", icon=":material/login:"):
         logout()
 
     st.sidebar.divider()
@@ -531,10 +522,20 @@ def show_main_app():
 
     cams = st.session_state.cameras
 
-    # Status filter
-    status_options = sorted({c.get("status") for c in cams if c.get("status")})
-    prev_status = [s for s in st.session_state.get("filter_status", []) if s in status_options]
+    # 1) Read previous selections
+    prev_status = st.session_state.get("filter_status", [])
 
+    # 2) Apply previous filters to get subset
+    filtered_for_options = cams
+    if prev_status:
+        filtered_for_options = [c for c in filtered_for_options if c.get("status") in prev_status]
+
+    # 3) Build available options
+    status_options = sorted({c.get("status") for c in filtered_for_options if c.get("status")})
+
+    prev_status = [s for s in prev_status if s in status_options]
+
+    # 4) Render widgets
     selected_status = st.sidebar.multiselect(
         "Status",
         status_options,
@@ -542,32 +543,32 @@ def show_main_app():
         key="filter_status"
     )
 
+    # 5) Apply filters again to get final result
     filtered = cams
     if selected_status:
         filtered = [c for c in filtered if c.get("status") in selected_status]
 
     st.sidebar.divider()
+    st.sidebar.header("Edit/Delete camera")
 
     # MAP
     m = folium.Map(location=st.session_state.map_center, zoom_start=12, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
 
-    # Optional: boundary
-    if st.session_state.project:
-        boundary, bounds = load_project_boundary(st.session_state.project)
-        if boundary:
-            folium.GeoJson(
-                boundary,
-                name="Boundary",
-                style_function=lambda x: {
-                    "fillColor": "#ffcc00",
-                    "color": "red",
-                    "weight": 2.5,
-                    "fillOpacity": 0.1,
-                }
-            ).add_to(m)
-            if bounds:
-                m.fit_bounds(bounds)
+    boundary, bounds = load_project_boundary(st.session_state.project)
+    if boundary:
+        folium.GeoJson(
+            boundary,
+            name="Boundary",
+            style_function=lambda x: {
+                "fillColor": "#ffcc00",
+                "color": "red",
+                "weight": 2.5,
+                "fillOpacity": 0.1,
+            }
+        ).add_to(m)
+        if bounds:
+            m.fit_bounds(bounds)
 
     cluster = MarkerCluster().add_to(m)
 
@@ -592,51 +593,129 @@ def show_main_app():
         )
 
         popup_html = f"""
-        <b>{cam['camera_name']}</b><br>
-        Status: {cam['status']}<br>
-        Date: {cam['date']}<br>
-        <span style="display:none">{cam['id']}</span>
+        <div style="
+            background-color: white;
+            padding: 10px 14px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            font-family: 'Arial', sans-serif;
+            width: 200px;
+            border: 3px solid {color};
+        ">
+            <div style="
+                font-weight: 700;
+                font-size: 15px;
+                color: {color};
+                margin-bottom: 6px;
+                text-align: center;
+            ">
+                {cam.get('camera_name','')}
+            </div>
+            <div style="
+                font-size: 13px;
+                color: #444;
+                margin-bottom: 4px;
+                text-align: center;
+            ">
+                {cam.get('date','')}
+            </div>
+            <div style="
+                font-size: 12px;
+                color: #555;
+                margin-bottom: 4px;
+                font-style: italic;
+                text-align: center;
+            ">
+                Status: {cam.get('status','')}
+            </div>
+            <div style="
+                font-size: 12px;
+                color: #333;
+                text-align: justify;
+            ">
+                {cam.get('comment','')}
+            </div>
+        </div>
         """
+
+        tooltip_text = str(cam["id"])
+
+        marker_icon = icon
 
         folium.Marker(
             location=[cam["lat"], cam["lon"]],
-            icon=icon,
-            popup=popup_html
+            popup=popup_html,
+            tooltip=tooltip_text,
+            icon=marker_icon
         ).add_to(cluster)
 
-    map_data = st_folium(m, width="100%", height=600)
+    with st.container():
+        st.markdown('<div class="fixed-map">', unsafe_allow_html=True)
+        map_data = st_folium(m, height=450, width="100%")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Detect clicked marker via popup HTML
-    if map_data and map_data.get("last_object_clicked_popup"):
-        popup_html = map_data["last_object_clicked_popup"]
-        match = re.search(r"<span style=\"display:none\">(.*?)</span>", popup_html)
-        if match:
-            cam_id = match.group(1)
+    st.session_state.map_input_center = _get_center_from_map_data(map_data, st.session_state.map_center)
+
+    if map_data and map_data.get("last_object_clicked_tooltip"):
+        cam_id = map_data.get("last_object_clicked_tooltip")
+        if cam_id:
             st.session_state.selected_camera_id = cam_id
 
-    # If a camera is selected, open manage dialog
-    if st.session_state.selected_camera_id:
-        cam = next((c for c in st.session_state.cameras if c["id"] == st.session_state.selected_camera_id), None)
-        if cam:
-            if st.button("Manage observation", use_container_width=True):
-                manage_camera_dialog(cam)
+    selected_id = st.session_state.selected_camera_id
+    selected_cam = None
+    for cam in filtered:
+        if str(cam["id"]) == str(selected_id):
+            selected_cam = cam
+            break
+
+    if selected_cam:
+        cam_id = str(selected_cam["id"])
+        label = f"({cam_id}) {selected_cam.get('camera_name','')} – {selected_cam.get('status','')}"
+        if st.sidebar.button(label, key=f"cam_{cam_id}", width="stretch"):
+            manage_camera_dialog(selected_cam)
 
 
-# ----------------- ENTRYPOINT -----------------
+# ----------------- RESTORE SESSION -----------------
+def restore_session_after_functions():
+    sess = supabase.auth.get_session()
+    if sess and sess.user:
+        st.session_state.logged_in = True
+        st.session_state.user = sess.user
+        st.session_state.session = sess
+
+        metadata = sess.user.user_metadata or {}
+        saved_project = metadata.get("project")
+
+        if saved_project:
+            st.session_state.project = saved_project
+            load_cameras(saved_project)
+
+
+restore_session_after_functions()
+
+
+# ----------------- MAIN -----------------
 def main():
     if not st.session_state.logged_in:
         if st.session_state.show_signup:
             show_signup()
         else:
             show_login()
-        return
-
-    if not st.session_state.project or st.session_state.changing_project:
+    elif st.session_state.changing_project:
         show_project_selection()
-        return
-
-    show_main_app()
+        st.sidebar.divider()
+        if st.sidebar.button("Logout", width="stretch", icon=":material/login:"):
+            logout()
+    elif not st.session_state.project:
+        show_project_selection()
+        st.sidebar.divider()
+        if st.sidebar.button("Logout", width="stretch", icon=":material/login:"):
+            logout()
+    else:
+        st.logo(IMAGE, link=None, size="large", icon_image=IMAGE)
+        show_main_app()
 
 
 if __name__ == "__main__":
     main()
+
