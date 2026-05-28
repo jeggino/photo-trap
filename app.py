@@ -15,6 +15,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown("""
+<style>
+[data-testid="stDialog"] {
+    width: 90% !important;
+    max-width: 1200px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
@@ -29,7 +39,7 @@ CROSS_IMAGE_PATH = "https://static.vecteezy.com/system/resources/previews/031/74
 OPACITY = 1
 WIDTH = 30
 
-marker_size = 25
+marker_size = 28
 inner_icon_px = 11
 
 # ----------------- CAMERA STATUS -----------------
@@ -361,6 +371,11 @@ def new_camera_dialog():
 
 @st.dialog("Manage Camera")
 def manage_camera_dialog(camera):
+
+    # Keep delete confirmation stable
+    if "confirm_delete_camera" not in st.session_state:
+        st.session_state.confirm_delete_camera = False
+
     st.subheader(f"Camera: {camera['camera_name']}")
 
     # ----------------- CAMERA DETAILS + POSITION -----------------
@@ -389,7 +404,7 @@ def manage_camera_dialog(camera):
         )
 
         if new_cam_photo:
-            # Delete old photo if exists
+            # Delete old photo
             if camera.get("photo_url"):
                 old_file = camera["photo_url"].split("/")[-1]
                 try:
@@ -454,7 +469,7 @@ def manage_camera_dialog(camera):
         """
         m.get_root().html.add_child(folium.Element(crosshair_html))
 
-        map_data = st_folium(m, width="100%", height=350)
+        map_data = st_folium(m, width=350, height=350)
 
         try:
             new_lat = map_data["center"]["lat"]
@@ -477,6 +492,52 @@ def manage_camera_dialog(camera):
             st.rerun()
 
     st.divider()
+
+    # ----------------- LIGHTBOX CSS/JS -----------------
+    st.markdown("""
+    <style>
+    .lightbox-img {
+        cursor: pointer;
+        transition: 0.3s;
+        border-radius: 6px;
+    }
+    .lightbox-img:hover {
+        opacity: 0.8;
+    }
+    .lightbox-modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        padding-top: 60px;
+        left: 0; top: 0;
+        width: 100%; height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.9);
+    }
+    .lightbox-modal img {
+        margin: auto;
+        display: block;
+        max-width: 90%;
+        max-height: 90%;
+    }
+    </style>
+
+    <script>
+    function openLightbox(src) {
+        var modal = document.getElementById("lightboxModal");
+        var modalImg = document.getElementById("lightboxImage");
+        modal.style.display = "block";
+        modalImg.src = src;
+    }
+    function closeLightbox() {
+        document.getElementById("lightboxModal").style.display = "none";
+    }
+    </script>
+
+    <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox()">
+        <img id="lightboxImage">
+    </div>
+    """, unsafe_allow_html=True)
 
     # ----------------- EXISTING SURVEYS -----------------
     st.markdown("### Camera surveys")
@@ -503,22 +564,21 @@ def manage_camera_dialog(camera):
                 if urls:
                     st.markdown("#### Media gallery")
 
-                    cols = st.columns(2)
-                    idx = 0
-
                     for url in urls:
                         ext = url.split(".")[-1].lower()
 
-                        with cols[idx % 2]:
-                            if ext in ["jpg", "jpeg", "png"]:
-                                st.image(url, use_column_width=True)
-                            elif ext == "mp4":
-                                st.video(url)
+                        if ext in ["jpg", "jpeg", "png"]:
+                            st.markdown(
+                                f"""
+                                <img src="{url}" class="lightbox-img" width="100%" onclick="openLightbox('{url}')">
+                                """,
+                                unsafe_allow_html=True
+                            )
 
-                        idx += 1
+                        elif ext == "mp4":
+                            st.video(url)
 
                 if st.button(f"Delete survey {s['id']}", key=f"del_survey_{s['id']}"):
-                    # Delete media files
                     for url in urls:
                         filename = url.split("/")[-1]
                         try:
@@ -568,7 +628,12 @@ def manage_camera_dialog(camera):
     st.divider()
 
     # ----------------- DELETE CAMERA -----------------
-    if st.button("Delete camera", type="secondary", use_container_width=True):
+    if not st.session_state.confirm_delete_camera:
+        if st.button("Delete camera", type="secondary", use_container_width=True):
+            st.session_state.confirm_delete_camera = True
+            st.rerun()
+
+    else:
         st.warning("Choose what to delete:")
 
         choice = st.radio(
@@ -577,7 +642,8 @@ def manage_camera_dialog(camera):
                 "Delete camera only",
                 "Delete camera + survey photos",
                 "Delete camera + camera photo + survey photos"
-            ]
+            ],
+            key="delete_choice"
         )
 
         if st.button("Confirm delete", type="primary", use_container_width=True):
@@ -612,9 +678,15 @@ def manage_camera_dialog(camera):
             # Delete camera record
             supabase.table(CAMERA_TABLE).delete().eq("id", camera["id"]).execute()
 
+            st.session_state.confirm_delete_camera = False
             load_cameras(st.session_state.project)
             st.success("Camera deleted.")
             st.rerun()
+
+        if st.button("Cancel", use_container_width=True):
+            st.session_state.confirm_delete_camera = False
+            st.rerun()
+
 
 
 
