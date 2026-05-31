@@ -343,18 +343,23 @@ def new_camera_dialog():
 
             photo_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
 
-        data = {
-            "project": st.session_state.project,
-            "observer": st.session_state.user.email,
-            "camera_name": camera_name,
-            "status": status,
-            "comment": comment,
-            "lat": float(lat),
-            "lon": float(lon),
-            "photo_url": photo_url,
-            "camera_placed": str(camera_placed),
-            "camera_moved": str(camera_moved) if camera_moved else None,
-        }
+            if not camera_name.strip():
+                st.error("Camera name is required.")
+                st.stop()
+            
+            data = {
+                "project": st.session_state.project,
+                "observer": st.session_state.user.email,
+                "camera_name": camera_name.strip(),
+                "status": status,
+                "comment": comment,
+                "lat": float(lat),
+                "lon": float(lon),
+                "photo_url": photo_url,
+                "camera_placed": camera_placed.isoformat(),
+                "camera_moved": camera_moved.isoformat() if camera_moved else None,
+            }
+
 
         supabase.table(CAMERA_TABLE).insert(data).execute()
 
