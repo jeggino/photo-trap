@@ -328,44 +328,40 @@ def new_camera_dialog():
         photo = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
 
     if st.button("Create camera", use_container_width=True):
-
+    
         photo_url = None
         if photo:
             file_bytes = photo.getvalue()
             ext = photo.name.split(".")[-1].lower()
             file_id = f"{uuid.uuid4()}.{ext}"
-
+    
             supabase.storage.from_(MEDIA_BUCKET).upload(
                 file_id,
                 file_bytes,
                 file_options={"content-type": f"image/{ext}"}
             )
-
+    
             photo_url = supabase.storage.from_(MEDIA_BUCKET).get_public_url(file_id)
-
-            if not camera_name.strip():
-                st.error("Camera name is required.")
-                st.stop()
-            
-            data = {
-                "project": st.session_state.project,
-                "observer": st.session_state.user.email,
-                "camera_name": camera_name.strip(),
-                "status": status,
-                "comment": comment,
-                "lat": float(lat),
-                "lon": float(lon),
-                "photo_url": photo_url,
-                "camera_placed": camera_placed.isoformat(),
-                "camera_moved": camera_moved.isoformat() if camera_moved else None,
-            }
-
-
+    
+        data = {
+            "project": st.session_state.project,
+            "observer": st.session_state.user.email,
+            "camera_name": camera_name,
+            "status": status,
+            "comment": comment,
+            "lat": float(lat),
+            "lon": float(lon),
+            "photo_url": photo_url,
+            "camera_placed": camera_placed.isoformat(),
+            "camera_moved": camera_moved.isoformat() if camera_moved else None,
+        }
+    
         supabase.table(CAMERA_TABLE).insert(data).execute()
-
+    
         load_cameras(st.session_state.project)
         st.success("New camera created.")
         st.rerun()
+
 
 
 
