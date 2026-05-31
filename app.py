@@ -121,7 +121,6 @@ def load_cameras(project_name: str):
         .table(CAMERA_TABLE)
         .select("*")
         .eq("project", project_name)
-        .order("date", desc=False)
         .execute()
     )
     st.session_state.cameras = res.data or []
