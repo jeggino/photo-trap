@@ -320,7 +320,7 @@ def new_camera_dialog():
     with st.expander("Camera details", expanded=True):
         camera_name = st.text_input("Camera name")
         camera_placed = st.date_input("Camera placed", value=datetime.utcnow().date())
-        camera_moved = st.date_input("Camera moved (optional)")
+        camera_moved = st.date_input("Camera moved (optional)",value=None)
         status = st.selectbox("Status", CAMERA_STATUS)
         comment = st.text_area("Comment")
 
