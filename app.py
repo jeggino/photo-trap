@@ -916,6 +916,33 @@ def show_main_app():
         if st.sidebar.button(label, key=f"cam_{cam_id}", width="stretch"):
             manage_camera_dialog(selected_cam)
 
+        # GOOGLE MAPS BUTTON (works on Streamlit Cloud)
+        lat = selected_cam.get("lat")
+        lon = selected_cam.get("lon")
+    
+        if lat and lon:
+            maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+    
+            st.sidebar.markdown(
+                f"""
+                <a href="{maps_url}" target="_blank">
+                    <div style="
+                        background-color:#4285F4;
+                        color:white;
+                        padding:0.6rem;
+                        border-radius:5px;
+                        text-align:center;
+                        font-weight:500;
+                        margin-top:0.5rem;
+                        cursor:pointer;
+                    ">
+                        📍 Open in Google Maps
+                    </div>
+                </a>
+                """,
+                unsafe_allow_html=True
+            )
+
 
 # ----------------- RESTORE SESSION -----------------
 def restore_session_after_functions():
