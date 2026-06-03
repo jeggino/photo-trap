@@ -775,14 +775,23 @@ def show_main_app():
     m = folium.Map(location=st.session_state.map_center, zoom_start=12, zoom_control=False)
     LocateControl(auto_start=False).add_to(m)
 
-    # Satellite layer (Esri)
+    # # Satellite layer (Esri)
+    # folium.TileLayer(
+    #     tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    #     attr="Esri World Imagery",
+    #     name="Satellite",
+    #     overlay=False,
+    #     control=True
+    # ).add_to(m)
+
     folium.TileLayer(
-        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri World Imagery",
-        name="Satellite",
+        tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        attr="Google",
+        name="Google Satellite",
         overlay=False,
         control=True
     ).add_to(m)
+
 
     
 
