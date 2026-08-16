@@ -286,16 +286,27 @@ def new_camera_dialog():
     base_center = st.session_state.map_input_center
     zoom = 20
 
-    m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False)
+    m = folium.Map(location=base_center, zoom_start=zoom, zoom_control=False,tiles=None)
     LocateControl(auto_start=False).add_to(m)
 
-    # Satellite layer (Esri)
+    tiles = 'https://api.mapbox.com/styles/v1/jeggino/cmn7ms1u3001f01pl691k0eyu/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiamVnZ2lubyIsImEiOiJjbHdscmRkZHAxMTl1MmlyeTJpb3Z2eHdzIn0.N9TRN7xxTikk235dVs1YeQ'
+    folium.TileLayer(tiles=tiles,
+                     attr='XXX Mapbox Attribution',
+                         max_zoom=24,
+        max_native_zoom=22,
+        overlay=False,
+        control=False,name="OpenStreetMap").add_to(m)
+    
+    
+    # Satellite
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attr="Esri World Imagery",
+        attr="Esri",
         name="Satellite",
+        max_native_zoom=21,
+        max_zoom=21,
         overlay=False,
-        control=True
+        control=False
     ).add_to(m)
 
 
@@ -443,15 +454,26 @@ def manage_camera_dialog(camera):
         st.markdown("### Camera position")
 
         edit_center = [camera["lat"], camera["lon"]]
-        m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False)
+        m = folium.Map(location=edit_center, zoom_start=18, zoom_control=False,tiles=None)
 
-        # Satellite layer (Esri)
+        tiles = 'https://api.mapbox.com/styles/v1/jeggino/cmn7ms1u3001f01pl691k0eyu/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiamVnZ2lubyIsImEiOiJjbHdscmRkZHAxMTl1MmlyeTJpb3Z2eHdzIn0.N9TRN7xxTikk235dVs1YeQ'
+        folium.TileLayer(tiles=tiles,
+                         attr='XXX Mapbox Attribution',
+                             max_zoom=24,
+            max_native_zoom=22,
+            overlay=False,
+            control=False,name="OpenStreetMap").add_to(m)
+        
+        
+        # Satellite
         folium.TileLayer(
             tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            attr="Esri World Imagery",
+            attr="Esri",
             name="Satellite",
+            max_native_zoom=21,
+            max_zoom=21,
             overlay=False,
-            control=True
+            control=False
         ).add_to(m)
     
 
@@ -772,24 +794,27 @@ def show_main_app():
     st.sidebar.header("Edit/Delete camera")
 
     # MAP
-    m = folium.Map(location=st.session_state.map_center, zoom_start=12, zoom_control=False)
+    m = folium.Map(location=st.session_state.map_center, zoom_start=12, zoom_control=False,tiles=None)
     LocateControl(auto_start=False).add_to(m)
 
-    # # Satellite layer (Esri)
-    # folium.TileLayer(
-    #     tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    #     attr="Esri World Imagery",
-    #     name="Satellite",
-    #     overlay=False,
-    #     control=True
-    # ).add_to(m)
-
-    folium.TileLayer(
-        tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-        attr="Google",
-        name="Google Satellite",
+    tiles = 'https://api.mapbox.com/styles/v1/jeggino/cmn7ms1u3001f01pl691k0eyu/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiamVnZ2lubyIsImEiOiJjbHdscmRkZHAxMTl1MmlyeTJpb3Z2eHdzIn0.N9TRN7xxTikk235dVs1YeQ'
+    folium.TileLayer(tiles=tiles,
+                     attr='XXX Mapbox Attribution',
+                         max_zoom=24,
+        max_native_zoom=22,
         overlay=False,
-        control=True
+        control=False,name="OpenStreetMap").add_to(m)
+    
+    
+    # Satellite
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri",
+        name="Satellite",
+        max_native_zoom=21,
+        max_zoom=21,
+        overlay=False,
+        control=False
     ).add_to(m)
 
 
