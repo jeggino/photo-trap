@@ -43,11 +43,11 @@ marker_size = 28
 inner_icon_px = 11
 
 # ----------------- CAMERA STATUS -----------------
-CAMERA_STATUS = ["Camera met sardine", "Camera in mostella"]
+CAMERA_STATUS = ["camera met sardine", "camera in mostela"]
 
 STATUS_COLORS = {
-    "active": "green",
-    "inactive": "blue",
+    "camera met sardine": "green",
+    "camera in mostela": "blue",
 }
 
 # ----------------- INIT SUPABASE -----------------
